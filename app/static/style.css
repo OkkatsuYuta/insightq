@@ -666,3 +666,30 @@ body {
     max-height: 80vh;
   }
 }
+
+
+@media (max-width: 767px) {
+  .quarter-card .metric-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-right: 4px;
+  }
+
+  .quarter-card .metric-label {
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .quarter-card .metric-value {
+    width: 150px !important;
+    text-align: center !important;
+    justify-content: center !important;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+  }
+}

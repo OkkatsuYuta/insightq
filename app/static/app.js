@@ -91,8 +91,12 @@ function buildCard(item, type) {
     } else if (pat != null && inc != null && inc !== 0) {
       const pct = ((pat / inc) * 100).toFixed(1);
       const up  = pat >= 0;
-      badge = `<div class="profit-badge ${up?"up":"down"}">${up?"PROFIT ↑":"LOSS ↓"} ${up?"+":""}${pct}%</div>`;
-    }
+      if (up) {
+        badge = `<div class="profit-badge up">PROFIT ↑ +${pct}%</div>`;
+      } else {
+        badge = `<div class="profit-badge down">LOSS ↓</div>`;
+      }
+    } 
     card.innerHTML = `
       <div class="card-avatar">${esc(initials(item.company_name))}</div>
       <div class="card-body">
@@ -201,11 +205,10 @@ function renderDetail(rows) {
     </div>
     <div class="hero-tags">
       <span class="tag">${esc(first.consolidated||"Consolidated")}</span>
-      ${first.filing_date?`<span class="tag">Filed ${fmtDate(first.filing_date)}</span>`:""}
+      ${first.filing_date && first.filing_date !== "revised" ? `<span class="tag">Filed ${fmtDate(first.filing_date)}</span>` : ""}
     </div>`;
   body.appendChild(hero);
 
-  const LABELS  = { current_quarter:"Current Quarter", previous_quarter:"Last Quarter", full_year:"Trailing 12 Months" };
   const METRICS = [
     { key:"total_income",  label:"Total Revenue",     cr:true  },
     { key:"total_expense", label:"Total Expenses",    cr:true  },
@@ -221,80 +224,124 @@ function renderDetail(rows) {
   const prevRow = byType["previous_quarter"];
   const yearRow = byType["full_year"];
 
-  // ── Combined quarterly card (current + previous side by side) ──
-  if (currRow || prevRow) {
-    const card = document.createElement("div");
-    card.className = "quarter-card";
+  const isMobile = window.innerWidth < 768;
 
-    const currLabel = currRow ? quarterLabel(currRow.quarter_end) : "—";
-    const prevLabel = prevRow ? quarterLabel(prevRow.quarter_end) : "—";
+  if (isMobile) {
+    // ── MOBILE: 3 separate cards ──
 
-    const metricRows = METRICS.map(m => {
-      const currRaw = currRow ? currRow[m.key] : null;
-      const prevRaw = prevRow ? prevRow[m.key] : null;
+    
+    const buildSimpleCard = (row, title, compareRow) => {
+      const card = document.createElement("div");
+      card.className = "quarter-card";
+      const metricRows = METRICS.map(m => {
+        const raw  = row[m.key];
+        const prev = compareRow ? compareRow[m.key] : null;
+        let val, cls = "";
+        if (raw == null)       { val = "—"; cls = "na"; }
+        else if (!m.cr)        { val = `₹${Number(raw).toFixed(2)}`; cls = Number(raw) < 0 ? "negative" : ""; }
+        else                   { val = fmtCr(raw); cls = Number(raw) < 0 ? "negative" : ""; }
+        
+        
+        let qoq = "";
+        if (raw != null && prev != null && prev !== 0) {
+          const pct = ((raw - prev) / Math.abs(prev)) * 100;
+          const up  = pct >= 0;
+          if (raw >= 0) {
+            qoq = `<span class="qoq-badge ${up?"up":"down"}">${up?"▲":"▼"} ${Math.abs(pct).toFixed(1)}%</span>`;
+          } else {
+            qoq = `<span class="qoq-badge down">▼</span>`;
+          }
+        }
 
-      const fmtVal = (raw) => {
-        if (raw == null) return { val: "—", cls: "na" };
-        if (!m.cr) return { val: `₹${Number(raw).toFixed(2)}`, cls: Number(raw) < 0 ? "negative" : "" };
-        return { val: fmtCr(raw), cls: Number(raw) < 0 ? "negative" : "" };
-      };
+        return `<div class="metric-row">
+          <div class="metric-label">${m.label}</div>
+          <div class="metric-value ${cls}">${val}${qoq}</div>
+        </div>`;
+      }).join("");
+      card.innerHTML = `
+        <div class="quarter-header">
+          <div class="quarter-title">${title}</div>
+          <div class="quarter-period">${quarterLabel(row.quarter_end)}</div>
+        </div>${metricRows}`;
+      return card;
+    };
 
-      const curr = fmtVal(currRaw);
-      const prev = fmtVal(prevRaw);
+    if (currRow) body.appendChild(buildSimpleCard(currRow, "Current Quarter", prevRow));
+    if (prevRow) body.appendChild(buildSimpleCard(prevRow, "Previous Quarter"));
+    if (yearRow) body.appendChild(buildSimpleCard(yearRow, "Annual"));
 
-      let qoq = "";
-      if (currRaw != null && prevRaw != null && prevRaw !== 0) {
-        const pct = ((currRaw - prevRaw) / Math.abs(prevRaw)) * 100;
-        const up  = pct >= 0;
-        qoq = `<span class="qoq-badge ${up?"up":"down"}">${up?"▲":"▼"} ${Math.abs(pct).toFixed(1)}%</span>`;
-      }
+  } else {
+    // ── DESKTOP: combined card + full year ──
 
-      return `<div class="metric-row">
-        <div class="metric-label">${m.label}</div>
-        <div class="metric-right">
-          <div class="metric-value ${prev.cls} prev-value">${prev.val}</div>
-          <div class="metric-value ${curr.cls}">${curr.val}${qoq}</div>
-        </div>
-      </div>`;
-    }).join("");
+    if (currRow || prevRow) {
+      const card = document.createElement("div");
+      card.className = "quarter-card";
+      const currLabel = currRow ? quarterLabel(currRow.quarter_end) : "—";
+      const prevLabel = prevRow ? quarterLabel(prevRow.quarter_end) : "—";
 
-    card.innerHTML = `
-      <div class="quarter-header">
-        <div class="quarter-title">Quarterly</div>
-        <div class="quarter-col-labels">
-          <span class="col-label-prev">${prevLabel}</span>
-          <span class="col-label-curr">${currLabel}</span>
-        </div>
-      </div>${metricRows}`;
-    body.appendChild(card);
-  }
+      const metricRows = METRICS.map(m => {
+        const currRaw = currRow ? currRow[m.key] : null;
+        const prevRaw = prevRow ? prevRow[m.key] : null;
 
-  // ── Full year card (unchanged) ──
-  if (yearRow) {
-    const card = document.createElement("div");
-    card.className = "quarter-card";
+        const fmtVal = (raw) => {
+          if (raw == null) return { val: "—", cls: "na" };
+          if (!m.cr) return { val: `₹${Number(raw).toFixed(2)}`, cls: Number(raw) < 0 ? "negative" : "" };
+          return { val: fmtCr(raw), cls: Number(raw) < 0 ? "negative" : "" };
+        };
 
-    const metricRows = METRICS.map(m => {
-      const raw = yearRow[m.key];
-      let val, cls = "";
-      if (raw == null)  { val = "—"; cls = "na"; }
-      else if (!m.cr)   { val = `₹${Number(raw).toFixed(2)}`; cls = Number(raw) < 0 ? "negative" : ""; }
-      else              { val = fmtCr(raw); cls = Number(raw) < 0 ? "negative" : ""; }
+        const curr = fmtVal(currRaw);
+        const prev = fmtVal(prevRaw);
 
-      return `<div class="metric-row">
-        <div class="metric-label">${m.label}</div>
-        <div class="metric-right">
-          <div class="metric-value ${cls}">${val}</div>
-        </div>
-      </div>`;
-    }).join("");
+        let qoq = "";
+        if (currRaw != null && prevRaw != null && prevRaw !== 0) {
+          const pct = ((currRaw - prevRaw) / Math.abs(prevRaw)) * 100;
+          const up  = pct >= 0;
+          qoq = `<span class="qoq-badge ${up?"up":"down"}">${up?"▲":"▼"} ${Math.abs(pct).toFixed(1)}%</span>`;
+        }
 
-    card.innerHTML = `
-      <div class="quarter-header">
-        <div class="quarter-title">Trailing 12 Months</div>
-        <div class="quarter-period">${quarterLabel(yearRow.quarter_end)}</div>
-      </div>${metricRows}`;
-    body.appendChild(card);
+        return `<div class="metric-row">
+          <div class="metric-label">${m.label}</div>
+          <div class="metric-right">
+            <div class="metric-value ${prev.cls} prev-value">${prev.val}</div>
+            <div class="metric-value ${curr.cls}">${curr.val}${qoq}</div>
+          </div>
+        </div>`;
+      }).join("");
+
+      card.innerHTML = `
+        <div class="quarter-header">
+          <div class="quarter-title">Quarterly</div>
+          <div class="quarter-col-labels">
+            <span class="col-label-prev">${prevLabel}</span>
+            <span class="col-label-curr">${currLabel}</span>
+          </div>
+        </div>${metricRows}`;
+      body.appendChild(card);
+    }
+
+    if (yearRow) {
+      const card = document.createElement("div");
+      card.className = "quarter-card";
+      const metricRows = METRICS.map(m => {
+        const raw = yearRow[m.key];
+        let val, cls = "";
+        if (raw == null)  { val = "—"; cls = "na"; }
+        else if (!m.cr)   { val = `₹${Number(raw).toFixed(2)}`; cls = Number(raw) < 0 ? "negative" : ""; }
+        else              { val = fmtCr(raw); cls = Number(raw) < 0 ? "negative" : ""; }
+        return `<div class="metric-row">
+          <div class="metric-label">${m.label}</div>
+          <div class="metric-right">
+            <div class="metric-value ${cls}">${val}</div>
+          </div>
+        </div>`;
+      }).join("");
+      card.innerHTML = `
+        <div class="quarter-header">
+          <div class="quarter-title">Trailing 12 Months</div>
+          <div class="quarter-period">${quarterLabel(yearRow.quarter_end)}</div>
+        </div>${metricRows}`;
+      body.appendChild(card);
+    }
   }
 
   document.querySelector(".fetch-btn-label").textContent = "Refresh Data";
