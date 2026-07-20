@@ -54,6 +54,8 @@ def _attach_metrics(conn, filings):
             "pat":           m.get("net_profit"),
             "pbt":           m.get("profit_before_tax"),
             "eps":           m.get("eps_basic"),
+            "consolidated":  f["consolidated"],
+            "is_revision":   f["is_revision"] if "is_revision" in f.keys() else False,
         })
     return results
 
@@ -92,7 +94,7 @@ def api_released():
     filings = conn.execute(
         """
         SELECT f.id, f.symbol, f.company_name, f.quarter_end,
-               f.filing_date, f.consolidated,
+               f.filing_date, f.consolidated, f.is_revision,
                COALESCE(f.filing_type, 'quarterly') AS filing_type
         FROM integrated_filings f
         WHERE COALESCE(f.filing_type, 'quarterly') = 'quarterly'

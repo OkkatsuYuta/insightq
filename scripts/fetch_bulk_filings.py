@@ -158,8 +158,18 @@ def process_one(filing_meta, known_symbols, existing_filings, downloader):
         metadata.setdefault("company_name", company_name)
         standardized = FinancialExtractor(parsed).extract()
 
-        bd           = _parse_broadcast_date(filing_meta)
-        filing_date  = bd.strftime("%Y-%m-%d") if bd else None
+        raw_date     = filing_meta.get("broadcast_Date") or filing_meta.get("revised_Date")
+        filing_date  = raw_date.split(" ")[0] if raw_date else None
+        if filing_date:
+            # Normalize from "20-JUL-2026" to "2026-07-20"
+            from datetime import datetime
+            try:
+                filing_date = datetime.strptime(filing_date, "%d-%b-%Y").strftime("%Y-%m-%d")
+            except ValueError:
+                try:
+                    filing_date = datetime.strptime(filing_date, "%d-%m-%Y").strftime("%Y-%m-%d")
+                except ValueError:
+                    pass
 
         save_filing(
             symbol=symbol,

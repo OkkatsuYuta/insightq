@@ -81,7 +81,7 @@ function switchTab(tab) {
 function buildCard(item, type) {
   const card = document.createElement("div");
   card.className = "company-card";
-
+  card.dataset.isRevision = item.is_revision == 1 ? "true" : "false";
   if (type === "released") {
     const pat = item.pat != null ? Number(item.pat) / 100 : null;
     const inc = item.total_income != null ? Number(item.total_income) / 100 : null;
@@ -101,7 +101,10 @@ function buildCard(item, type) {
       <div class="card-avatar">${esc(initials(item.company_name))}</div>
       <div class="card-body">
         <div class="card-name">${esc(item.company_name)}</div>
-        <div class="card-sector">${esc(item.consolidated||"")}</div>
+        <div class="card-sector">
+          ${esc(item.consolidated||"")}
+          ${item.is_revision == 1 ? `<span class="rev-badge">Revised</span>` : `<span class="rev-badge original">Original</span>`}
+        </div>
       </div>
       <div class="card-right">${badge}</div>
       <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none">
@@ -130,6 +133,26 @@ function buildCard(item, type) {
 
   card.addEventListener("click", () => openDetail(item.symbol, item.company_name));
   return card;
+}
+
+
+/* ── Toggle Filter Function ─────────────────────────────────────────── */
+let activeFilter = 'all';
+function setFilter(filter) {
+  activeFilter = filter;
+  document.querySelectorAll('.filter-chip').forEach(btn => btn.classList.remove('active'));
+  document.getElementById(`filter-${filter}`).classList.add('active');
+
+  document.querySelectorAll('#list-released .company-card').forEach(card => {
+    const isRevision = card.dataset.isRevision === 'true';
+    if (filter === 'all') {
+      card.style.display = '';
+    } else if (filter === 'original') {
+      card.style.display = isRevision ? 'none' : '';
+    } else if (filter === 'revised') {
+      card.style.display = isRevision ? '' : 'none';
+    }
+  });
 }
 
 /* ── Render lists ─────────────────────────────────────────── */

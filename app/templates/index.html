@@ -14,7 +14,7 @@
   <div class="top-nav-inner">
     <div class="top-nav-brand">
       <div class="brand-icon">
-        <img src="{{ url_for('static', filename='logo.png') }}" width="24" height="24" style="object-fit:contain;">
+        <img src="{{ url_for('static', filename='logo2.png') }}" width="24" height="24" style="object-fit:contain;">
       </div>
       <span class="brand-name">InsightQ</span>
     </div>
@@ -67,6 +67,12 @@
     <div class="tab-content-wrap">
       <div>
         <div class="tab-column-header">Released</div>
+        <!-- ── TOGGLE FILTER (Original / Revised) ─────────────────────────────────────────── -->
+        <div class="revised-toggle-bar">
+          <button class="filter-chip active" id="filter-all" onclick="setFilter('all')">All</button>
+          <button class="filter-chip" id="filter-original" onclick="setFilter('original')">Original</button>
+          <button class="filter-chip" id="filter-revised" onclick="setFilter('revised')">Revised</button>
+        </div>
         <div class="list-view" id="list-released" style="display:none"></div>
       </div>
       <div>

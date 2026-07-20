@@ -82,6 +82,19 @@ def save_filing(
         filing.audited = metadata.get("audited")
         filing.consolidated = metadata.get("consolidated")
 
+        # For revisions with no broadcast date, inherit original's date or use today
+        if is_revision and not filing_date:
+            existing_date = (
+                session.query(IntegratedFiling.filing_date)
+                .filter_by(symbol=symbol, quarter_end=quarter_end)
+                .scalar()
+            )
+            if existing_date and existing_date != "revised":
+                filing_date = existing_date
+            else:
+                from datetime import date
+                filing_date = date.today().isoformat()
+
         if filing_date:
             parsed_filing_date = _parse_date(filing_date)
             filing.filing_date = (

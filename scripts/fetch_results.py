@@ -17,7 +17,7 @@ def main():
 
     inserted = 0
     updated  = 0
-
+    seen = set()
     print("Fetching upcoming events...")
 
     events = client.get_event_calendar()
@@ -36,6 +36,12 @@ def main():
             continue
 
         symbol   = event["symbol"]
+
+        key = (symbol, meeting_date, purpose)
+        if key in seen:
+            continue
+        seen.add(key)
+
         existing = (
             session.query(ResultsCalendar)
             .filter_by(symbol=symbol, meeting_date=meeting_date, purpose=purpose)
